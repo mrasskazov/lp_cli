@@ -22,43 +22,14 @@ import os
 import sys
 
 from launchpadlib.launchpad import Launchpad
+from launchpadlib.launchpad import uris
 
-CONFIG = dict()
 
+lp_cache_dir = os.path.expanduser(
+    os.environ.get('LAUNCHPAD_CACHE_DIR', '~/.launchpadlib/cache'))
 
-def config(key, unset=False):
-
-    conf_dir_name = '~/.config/ls_cli'
-    conf_file_name = os.path.expanduser(conf_dir_name + '/ls_cli.conf')
-    parser = ConfigParser.ConfigParser()
-
-    if os.path.isfile(conf_file_name):
-        parser.read(conf_file_name)
-    else:
-        print 'no config file found, generating it'
-        if not os.path.isdir(os.path.expanduser(conf_dir_name)):
-            os.makedirs(os.path.expanduser(conf_dir_name))
-
-    parser.has_section('general') or parser.add_section('general')
-
-    if unset:
-        del CONFIG[key]
-        parser.remove_option('general', key)
-
-    if key in CONFIG:
-        return CONFIG.get(key)
-    elif parser.has_option('general', key):
-        CONFIG[key] = parser.get('general', key)
-        return parser.get('general', key)
-    elif key == 'project':
-        project = raw_input('enter project:')
-        CONFIG['project'] = project
-        parser.set('general', 'project', project)
-
-    with open(conf_file_name, 'wb') as conf_file:
-        parser.write(conf_file)
-
-    return CONFIG[key]
+lp_creds_filename = os.path.expanduser(
+    os.environ.get('LAUNCHPAD_CREDS_FILENAME', '~/.launchpadlib/creds'))
 
 
 def get_argparser():
@@ -84,7 +55,11 @@ def main():
     except Exception, ex:
         sys.exit(str(ex))
 
-    launchpad = Launchpad.login_with(options.project.lower(), 'production')
+    launchpad = Launchpad.login_with(options.project.lower(),
+                                     uris.LPNET_SERVICE_ROOT,
+                                     lp_cache_dir,
+                                     credentials_file=lp_creds_filename,
+                                     version='devel')
     project = launchpad.projects[options.project]
     for bid in options.bug_id:
         bug = launchpad.bugs[bid]
