@@ -17,7 +17,6 @@
 # limitations under the License.
 
 import argparse
-import ConfigParser
 import os
 import sys
 
@@ -66,10 +65,11 @@ def main():
         o_bugs = project.searchTasks(owner=bug.owner)
         for b in o_bugs:
             if bug.self_link == b.bug_link:
+                print '=' * 60
                 print bug
                 print bug.title
-                print bug.owner
                 print bug.newMessage(content=options.message)
+                print options.message
 
 
 if __name__ == '__main__':
