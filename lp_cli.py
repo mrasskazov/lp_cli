@@ -38,38 +38,44 @@ def get_argparser():
                                      'for Launchpad')
     parser.add_argument('project',
                         help='Launchpad project\'s name.')
-    parser.add_argument('message',
-                        help='Message body. Can be multiline. Use quites.')
-    parser.add_argument('bug_id',
-                        help='Bug id to list.',
-                        nargs='+')
+
+    subparsers = parser.add_subparsers(title='subcommands')
+
+    parser_comment = subparsers.add_parser('comment')
+    parser_comment.set_defaults(func=command_comment)
+    parser_comment.add_argument('bug_id', help='Bug id on Launchpad.')
+    parser_comment.add_argument('-c', '--comment',
+                                help='Comment body.',
+                                nargs='+')
     return parser
 
 
-def main():
+def command_comment(options):
 
-    try:
-        parser = get_argparser()
-        options = parser.parse_args()
-    except Exception, ex:
-        sys.exit(str(ex))
+    comment = ' '.join(options.comment)
+    comment = comment.strip()
 
     launchpad = Launchpad.login_with(options.project.lower(),
                                      uris.LPNET_SERVICE_ROOT,
                                      lp_cache_dir,
-                                     credentials_file=lp_creds_filename,
-                                     version='devel')
+                                     credentials_file=lp_creds_filename)
     project = launchpad.projects[options.project]
-    for bid in options.bug_id:
-        bug = launchpad.bugs[bid]
-        o_bugs = project.searchTasks(owner=bug.owner)
-        for b in o_bugs:
-            if bug.self_link == b.bug_link:
-                print '=' * 60
-                print bug
-                print bug.title
-                print bug.newMessage(content=options.message)
-                print options.message
+    bug = launchpad.bugs[options.bug_id]
+    o_bugs = project.searchTasks(owner=bug.owner)
+    for b in o_bugs:
+        if bug.self_link == b.bug_link:
+            print '=' * 60
+            print bug
+            print bug.title
+            print bug.newMessage(content=comment)
+            print comment
+
+
+def main():
+
+    parser = get_argparser()
+    options = parser.parse_args()
+    options.func(options)
 
 
 if __name__ == '__main__':
