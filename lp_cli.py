@@ -44,9 +44,7 @@ def get_argparser():
     parser_comment = subparsers.add_parser('comment')
     parser_comment.set_defaults(func=command_comment)
     parser_comment.add_argument('bug_id', help='Bug id on Launchpad.')
-    parser_comment.add_argument('-c', '--comment',
-                                help='Comment body.',
-                                nargs='+')
+    parser_comment.add_argument('comment', help='Comment body.', nargs='+')
     return parser
 
 
