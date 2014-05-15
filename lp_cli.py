@@ -18,17 +18,49 @@
 
 import argparse
 import os
-import sys
 
 from launchpadlib.launchpad import Launchpad
 from launchpadlib.launchpad import uris
 
 
-lp_cache_dir = os.path.expanduser(
-    os.environ.get('LAUNCHPAD_CACHE_DIR', '~/.launchpadlib/cache'))
+class launchpad_client(object):
 
-lp_creds_filename = os.path.expanduser(
-    os.environ.get('LAUNCHPAD_CREDS_FILENAME', '~/.launchpadlib/creds'))
+    def __init__(self, project):
+
+        lp_cache_dir = os.path.expanduser(
+            os.environ.get('LAUNCHPAD_CACHE_DIR',
+                           '~/.launchpadlib/cache'))
+
+        lp_creds_filename = os.path.expanduser(
+            os.environ.get('LAUNCHPAD_CREDS_FILENAME',
+                           '~/.launchpadlib/creds'))
+
+        self.Launchpad = Launchpad.login_with(
+            project,
+            uris.LPNET_SERVICE_ROOT,
+            lp_cache_dir,
+            credentials_file=lp_creds_filename)
+
+        self.Project = self.launchpad.projects[project]
+
+    @property
+    def launchpad(self):
+        return self.Launchpad
+
+    @property
+    def project(self):
+        return self.Project
+
+    def bug(self, bug_id):
+        by_id = self.launchpad.bugs[bug_id]
+        o_bugs = self.project.searchTasks(owner=by_id.owner)
+        for by_own in o_bugs:
+            if by_id.self_link == by_own.bug_link:
+                return by_id, by_own
+
+    def add_comment(self, bug_id, comment):
+        by_id, by_own = self.bug(bug_id)
+        return by_id.newMessage(content=comment)
 
 
 def get_argparser():
@@ -48,32 +80,18 @@ def get_argparser():
     return parser
 
 
-def command_comment(options):
-
-    comment = ' '.join(options.comment)
-    comment = comment.strip()
-
-    launchpad = Launchpad.login_with(options.project.lower(),
-                                     uris.LPNET_SERVICE_ROOT,
-                                     lp_cache_dir,
-                                     credentials_file=lp_creds_filename)
-    project = launchpad.projects[options.project]
-    bug = launchpad.bugs[options.bug_id]
-    o_bugs = project.searchTasks(owner=bug.owner)
-    for b in o_bugs:
-        if bug.self_link == b.bug_link:
-            print '=' * 60
-            print bug
-            print bug.title
-            print bug.newMessage(content=comment)
-            print comment
+def command_comment(launchpad_client, options):
+    comment = ' '.join(options.comment).strip()
+    print 'Added comment: {}'.format(launchpad_client.add_comment(
+        options.bug_id, comment).web_link)
 
 
 def main():
 
     parser = get_argparser()
     options = parser.parse_args()
-    options.func(options)
+    lp = launchpad_client(project=options.project)
+    options.func(lp, options)
 
 
 if __name__ == '__main__':
