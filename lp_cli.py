@@ -62,6 +62,15 @@ class launchpad_client(object):
         by_id, by_own = self.bug(bug_id)
         return by_id.newMessage(content=comment)
 
+    def change_status(self, bug_id, status, current_status=None):
+        by_id, by_own = self.bug(bug_id)
+        #if current_status:
+        #    if by_own.status != current_status:
+        #        raise Exception('Bug status is not updated because current '
+        #                        'value is not up to expectations')
+        by_own.status = status
+        return by_own.lp_save()
+
 
 def get_argparser():
 
@@ -77,6 +86,15 @@ def get_argparser():
     parser_comment.set_defaults(func=command_comment)
     parser_comment.add_argument('bug_id', help='Bug id on Launchpad.')
     parser_comment.add_argument('comment', help='Comment body.', nargs='+')
+
+    parser_status = subparsers.add_parser('status')
+    parser_status.set_defaults(func=command_status)
+    parser_status.add_argument('bug_id', help='Bug id on Launchpad.')
+    parser_status.add_argument('-s', '--status', help='New status for a bug.')
+    #parser_status.add_argument('-c', '--current-status',
+    #                           help='Current status for bug. If specified, '
+    #                           'status will be updated only when according.')
+
     return parser
 
 
@@ -84,6 +102,12 @@ def command_comment(launchpad_client, options):
     comment = ' '.join(options.comment).strip()
     print 'Added comment: {}'.format(launchpad_client.add_comment(
         options.bug_id, comment).web_link)
+
+
+def command_status(launchpad_client, options):
+    launchpad_client.change_status(options.bug_id, options.status)
+    print 'Status for bug #{} changed to "{}"'.format(options.bug_id,
+                                                      options.status)
 
 
 def main():
