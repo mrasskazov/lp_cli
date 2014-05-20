@@ -25,7 +25,7 @@ from launchpadlib.launchpad import uris
 
 class launchpad_client(object):
 
-    def __init__(self, project):
+    def __init__(self, project, bug_id=None):
 
         lp_cache_dir = os.path.expanduser(
             os.environ.get('LAUNCHPAD_CACHE_DIR',
@@ -43,6 +43,13 @@ class launchpad_client(object):
 
         self.Project = self.launchpad.projects[project]
 
+        self.Bug = None
+        self.Tasks = []
+        if bug_id is not None:
+            self.Bug = self.bug(bug_id)
+
+            self.Tasks = self.tasks(bug_id)
+
     @property
     def launchpad(self):
         return self.Launchpad
@@ -51,25 +58,30 @@ class launchpad_client(object):
     def project(self):
         return self.Project
 
-    def bug(self, bug_id):
-        by_id = self.launchpad.bugs[bug_id]
-        o_bugs = self.project.searchTasks(owner=by_id.owner)
-        for by_own in o_bugs:
-            if by_id.self_link == by_own.bug_link:
-                return by_id, by_own
+    def bug(self, bug_id=None):
+        return self.Bug if bug_id is None else self.launchpad.bugs[bug_id]
 
-    def add_comment(self, bug_id, comment):
-        by_id, by_own = self.bug(bug_id)
-        return by_id.newMessage(content=comment)
+    def tasks(self, bug_id=None):
+        if bug_id is not None:
+            for task in self.bug(bug_id).bug_tasks:
+                if task.bug_target_name == self.project.name:
+                    self.Tasks.append(task)
+            if not self.Tasks:
+                raise Exception("Bug #{} not affected on project '{}'".format(
+                    bug_id, self.project))
+        return self.Tasks
 
-    def change_status(self, bug_id, status, current_status=None):
-        by_id, by_own = self.bug(bug_id)
-        #if current_status:
-        #    if by_own.status != current_status:
-        #        raise Exception('Bug status is not updated because current '
-        #                        'value is not up to expectations')
-        by_own.status = status
-        return by_own.lp_save()
+    def add_comment(self, comment):
+        return self.bug().newMessage(content=comment)
+
+    def change_status(self, status, current_status=None):
+        for task in self.tasks():
+            #if current_status:
+            #    if task.status != current_status:
+            #        raise Exception('Bug status is not updated because '
+            #                        'current value is not up to expectations')
+            task.status = status
+            task.lp_save()
 
 
 def get_argparser():
@@ -90,7 +102,8 @@ def get_argparser():
     parser_status = subparsers.add_parser('status')
     parser_status.set_defaults(func=command_status)
     parser_status.add_argument('bug_id', help='Bug id on Launchpad.')
-    parser_status.add_argument('-s', '--status', help='New status for a bug.')
+    parser_status.add_argument('-s', '--status',
+                               help='New status for a bug.')
     #parser_status.add_argument('-c', '--current-status',
     #                           help='Current status for bug. If specified, '
     #                           'status will be updated only when according.')
@@ -100,12 +113,12 @@ def get_argparser():
 
 def command_comment(launchpad_client, options):
     comment = ' '.join(options.comment).strip()
-    print 'Added comment: {}'.format(launchpad_client.add_comment(
-        options.bug_id, comment).web_link)
+    print 'Added comment: {}'.format(
+        launchpad_client.add_comment(comment).web_link)
 
 
 def command_status(launchpad_client, options):
-    launchpad_client.change_status(options.bug_id, options.status)
+    launchpad_client.change_status(options.status)
     print 'Status for bug #{} changed to "{}"'.format(options.bug_id,
                                                       options.status)
 
@@ -114,7 +127,7 @@ def main():
 
     parser = get_argparser()
     options = parser.parse_args()
-    lp = launchpad_client(project=options.project)
+    lp = launchpad_client(project=options.project, bug_id=options.bug_id)
     options.func(lp, options)
 
 
