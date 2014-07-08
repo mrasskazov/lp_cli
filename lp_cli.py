@@ -83,6 +83,11 @@ class launchpad_client(object):
             task.status = status
             task.lp_save()
 
+    def create_bug(self, title, description):
+        return self.launchpad.bugs.createBug(target=self.project.self_link,
+                                             title=title,
+                                             description=description)
+
 
 def get_argparser():
 
@@ -108,6 +113,14 @@ def get_argparser():
     #                           help='Current status for bug. If specified, '
     #                           'status will be updated only when according.')
 
+    parser_report = subparsers.add_parser('report')
+    parser_report.set_defaults(func=command_report)
+    parser_report.add_argument('title',
+                               nargs='+',
+                               help='Bug title.')
+    parser_report.add_argument('-d', '--description',
+                               nargs='+',
+                               help='Bug description.')
     return parser
 
 
@@ -123,11 +136,19 @@ def command_status(launchpad_client, options):
                                                       options.status)
 
 
+def command_report(launchpad_client, options):
+    title = ' '.join(options.title).strip()
+    description = ' '.join(options.description).strip() or ''
+    bug = launchpad_client.create_bug(title, description)
+    print 'Reported bug #{} {}'.format(bug.id, bug.web_link)
+
+
 def main():
 
     parser = get_argparser()
     options = parser.parse_args()
-    lp = launchpad_client(project=options.project, bug_id=options.bug_id)
+    #lp = launchpad_client(project=options.project, bug_id=options.bug_id)
+    lp = launchpad_client(project=options.project)
     options.func(lp, options)
 
 
