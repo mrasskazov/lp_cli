@@ -90,14 +90,44 @@ class launchpad_client(object):
 
 
 def get_argparser():
+    statuses_report = ['New',
+                       'Confirmed',
+                       'Triaged',
+                       'In Progress',
+                       'Fix Committed',
+                       'Fix Released']
+    statuses_update = ['Imcomplete',
+                       'Opinion',
+                       'Invalid',
+                       'Won\'t fix']
+    statuses_update += statuses_report
+
+    accessibility = ['Public',
+                     'Public Security',
+                     'Private',
+                     'Private Seciruty',
+                     'Proprietary']
+
+    importance = ['Undecided',
+                  'Critical',
+                  'High',
+                  'Medium',
+                  'Low',
+                  'Wishlist']
 
     parser = argparse.ArgumentParser(prog='lp_cli.py',
                                      description='Command line client '
                                      'for Launchpad')
     parser.add_argument('project',
-                        help='Launchpad project\'s name.')
+                        help='Launchpad project\'s name for auth.')
+    parser.add_argument('-a', '--affected',
+                        nargs='*',
+                        default=None,
+                        help='Launchpad project\'s name for check that bug is '
+                        'affected on it. If specified, bug will be updated '
+                        'only in this case.')
 
-    subparsers = parser.add_subparsers(title='subcommands')
+    subparsers = parser.add_subparsers(title='Commands')
 
     parser_comment = subparsers.add_parser('comment')
     parser_comment.set_defaults(func=command_comment)
@@ -120,7 +150,67 @@ def get_argparser():
                                help='Bug title.')
     parser_report.add_argument('-d', '--description',
                                nargs='+',
+                               default=None,
                                help='Bug description.')
+    parser_report.add_argument('-a', '--accessibility',
+                               default='Public',
+                               choices=accessibility,
+                               help='Bug accessibility')
+
+    parser_report.add_argument('-s', '--status',
+                               choices=statuses_report,
+                               default='New',
+                               help='Bug status.')
+    parser_report.add_argument('-i', '--importance',
+                               choices=importance,
+                               default='Undecided',
+                               help='Bug importance.')
+    parser_report.add_argument('-m', '--milestone',
+                               default=None,
+                               help='Milestone')
+    parser_report.add_argument('-t', '--tags',
+                               nargs='+',
+                               help='Add specified tags.')
+    parser_report.add_argument('-o', '--assign-to',
+                               default=None,
+                               help='Assign bug to specified user/group.')
+    #TODO: add attach subcommand w/ parameters:
+    #TODO: "Description for it" --patch(True/False) filename
+
+    parser_update = subparsers.add_parser('update')
+    parser_update.set_defaults(func=command_update)
+    parser_update.add_argument('title',
+                               nargs='+',
+                               help='Bug title.')
+    parser_update.add_argument('-d', '--description',
+                               nargs='+',
+                               default=None,
+                               help='Bug description.')
+    parser_update.add_argument('-a', '--accessibility',
+                               default='Public',
+                               choices=accessibility,
+                               help='Bug accessibility')
+
+    parser_update.add_argument('-s', '--status',
+                               choices=statuses_update,
+                               default='New',
+                               help='Bug status.')
+    parser_update.add_argument('-i', '--importance',
+                               choices=importance,
+                               default='Undecided',
+                               help='Bug importance.')
+    parser_update.add_argument('-m', '--milestone',
+                               default=None,
+                               help='Milestone')
+    parser_update.add_argument('-t', '--tags',
+                               nargs='+',
+                               help='Add specified tags.')
+    parser_update.add_argument('-o', '--assign-to',
+                               default=None,
+                               help='Assign bug to specified user/group.')
+    #TODO: add attach subcommand w/ parameters:
+    #TODO: "Description for it" --patch(True/False) filename
+
     return parser
 
 
