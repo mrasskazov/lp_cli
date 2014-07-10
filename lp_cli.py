@@ -25,7 +25,7 @@ from launchpadlib.launchpad import uris
 
 class launchpad_client(object):
 
-    def __init__(self, project, bug_id=None):
+    def __init__(self, project):
 
         lp_cache_dir = os.path.expanduser(
             os.environ.get('LAUNCHPAD_CACHE_DIR',
@@ -36,57 +36,84 @@ class launchpad_client(object):
                            '~/.launchpadlib/creds'))
 
         self.Launchpad = Launchpad.login_with(
-            project,
+            project.lower(),
             uris.LPNET_SERVICE_ROOT,
             lp_cache_dir,
             credentials_file=lp_creds_filename)
 
-        self.Project = self.launchpad.projects[project]
-
+        self.Project = None
         self.Bug = None
         self.Tasks = []
-        if bug_id is not None:
-            self.Bug = self.bug(bug_id)
 
-            self.Tasks = self.tasks(bug_id)
+        self.project(project.lower())
 
     @property
     def launchpad(self):
         return self.Launchpad
 
-    @property
-    def project(self):
+    def project(self, project=None):
+        if project is not None:
+            self.Project = self.launchpad.projects[project]
         return self.Project
 
     def bug(self, bug_id=None):
-        return self.Bug if bug_id is None else self.launchpad.bugs[bug_id]
+        if bug_id is not None:
+            if self.Bug is None or self.Bug.id != bug_id:
+                self.Bug = self.launchpad.bugs[bug_id]
+        return self.Bug
 
     def tasks(self, bug_id=None):
         if bug_id is not None:
-            for task in self.bug(bug_id).bug_tasks:
-                if task.bug_target_name == self.project.name:
-                    self.Tasks.append(task)
-            if not self.Tasks:
-                raise Exception("Bug #{} not affected on project '{}'".format(
-                    bug_id, self.project))
+            #TODO: add check for affected projects
+            #for task in self.bug(bug_id).bug_tasks:
+            #    if task.bug_target_name == self.project().name:
+            #        self.Tasks.append(task)
+            #if not self.Tasks:
+            #    raise Exception("Bug #{} not affected on project '{}'".format(
+            #        bug_id, self.project()))
+            self.Tasks = self.bug(bug_id).bug_tasks
         return self.Tasks
 
-    def add_comment(self, comment):
-        return self.bug().newMessage(content=comment)
+    def create_bug(self, title, description, **properties):
+        bug = self.launchpad.bugs.createBug(target=self.project().self_link,
+                                            title=title,
+                                            description=description)
+        self.update_bug(bug.id, **properties)
+        return bug
 
-    def change_status(self, status, current_status=None):
-        for task in self.tasks():
-            #if current_status:
-            #    if task.status != current_status:
-            #        raise Exception('Bug status is not updated because '
-            #                        'current value is not up to expectations')
-            task.status = status
+    def update_bug(self, bug_id=None, **properties):
+        bug = self.bug(bug_id)
+        updated = False
+        for p in ['title', 'description', 'tags']:
+            if p in properties:
+                #exec('bug.{0} = properties["{0}"]'.format(p))
+                setattr(bug, p, properties[p])
+                updated = True
+        if updated:
+            bug.lp_save()
+
+        for task in self.tasks(bug_id):
+            self.update_task(task, **properties)
+
+        return bug
+
+    def update_task(self, task, **properties):
+        updated = False
+        for p in ['status', 'importance', 'milestone', 'assignee']:
+            if p in properties:
+                #exec('task.{0} = properties["{0}"]'.format(p))
+                setattr(task, p, properties[p])
+                updated = True
+        if updated:
             task.lp_save()
 
-    def create_bug(self, title, description):
-        return self.launchpad.bugs.createBug(target=self.project.self_link,
-                                             title=title,
-                                             description=description)
+    #TODO: create task for the bug
+
+    def add_comment(self, comment, bug_id=None):
+        return self.bug(bug_id).newMessage(content=comment)
+
+    def change_status(self, bug_id, status, current_status=None):
+        self.update_bug(bug_id, status=status)
 
 
 def get_argparser():
@@ -101,12 +128,6 @@ def get_argparser():
                        'Invalid',
                        'Won\'t fix']
     statuses_update += statuses_report
-
-    accessibility = ['Public',
-                     'Public Security',
-                     'Private',
-                     'Private Seciruty',
-                     'Proprietary']
 
     importance = ['Undecided',
                   'Critical',
@@ -138,6 +159,7 @@ def get_argparser():
     parser_status.set_defaults(func=command_status)
     parser_status.add_argument('bug_id', help='Bug id on Launchpad.')
     parser_status.add_argument('-s', '--status',
+                               choices=statuses_update,
                                help='New status for a bug.')
     #parser_status.add_argument('-c', '--current-status',
     #                           help='Current status for bug. If specified, '
@@ -146,16 +168,10 @@ def get_argparser():
     parser_report = subparsers.add_parser('report')
     parser_report.set_defaults(func=command_report)
     parser_report.add_argument('title',
-                               nargs='+',
                                help='Bug title.')
     parser_report.add_argument('-d', '--description',
-                               nargs='+',
-                               default=None,
+                               required=True,
                                help='Bug description.')
-    parser_report.add_argument('-a', '--accessibility',
-                               default='Public',
-                               choices=accessibility,
-                               help='Bug accessibility')
 
     parser_report.add_argument('-s', '--status',
                                choices=statuses_report,
@@ -170,8 +186,9 @@ def get_argparser():
                                help='Milestone')
     parser_report.add_argument('-t', '--tags',
                                nargs='+',
+                               default=[],
                                help='Add specified tags.')
-    parser_report.add_argument('-o', '--assign-to',
+    parser_report.add_argument('-a', '--assignee',
                                default=None,
                                help='Assign bug to specified user/group.')
     #TODO: add attach subcommand w/ parameters:
@@ -179,33 +196,30 @@ def get_argparser():
 
     parser_update = subparsers.add_parser('update')
     parser_update.set_defaults(func=command_update)
-    parser_update.add_argument('title',
-                               nargs='+',
+    parser_update.add_argument('bug_id', help='Bug id on Launchpad.')
+    parser_update.add_argument('-l', '--title',
+                               default=None,
                                help='Bug title.')
     parser_update.add_argument('-d', '--description',
-                               nargs='+',
                                default=None,
                                help='Bug description.')
-    parser_update.add_argument('-a', '--accessibility',
-                               default='Public',
-                               choices=accessibility,
-                               help='Bug accessibility')
 
     parser_update.add_argument('-s', '--status',
                                choices=statuses_update,
-                               default='New',
+                               default=None,
                                help='Bug status.')
     parser_update.add_argument('-i', '--importance',
                                choices=importance,
-                               default='Undecided',
+                               default=None,
                                help='Bug importance.')
     parser_update.add_argument('-m', '--milestone',
                                default=None,
                                help='Milestone')
     parser_update.add_argument('-t', '--tags',
                                nargs='+',
+                               default=[],
                                help='Add specified tags.')
-    parser_update.add_argument('-o', '--assign-to',
+    parser_update.add_argument('-a', '--assignee',
                                default=None,
                                help='Assign bug to specified user/group.')
     #TODO: add attach subcommand w/ parameters:
@@ -217,27 +231,42 @@ def get_argparser():
 def command_comment(launchpad_client, options):
     comment = ' '.join(options.comment).strip()
     print 'Added comment: {}'.format(
-        launchpad_client.add_comment(comment).web_link)
+        launchpad_client.add_comment(comment=comment,
+                                     bug_id=options.bug_id).web_link)
 
 
 def command_status(launchpad_client, options):
-    launchpad_client.change_status(options.status)
+    launchpad_client.change_status(options.bug_id, options.status)
     print 'Status for bug #{} changed to "{}"'.format(options.bug_id,
                                                       options.status)
 
 
 def command_report(launchpad_client, options):
-    title = ' '.join(options.title).strip()
-    description = ' '.join(options.description).strip() or ''
-    bug = launchpad_client.create_bug(title, description)
+    title = options.title
+    description = options.description
+    properties = vars(options)
+    properties.pop('title', None)
+    properties.pop('description', None)
+    for k in properties.keys():
+        if properties[k] is None or properties[k] == []:
+            properties.pop(k, None)
+    bug = launchpad_client.create_bug(title, description, **properties)
     print 'Reported bug #{} {}'.format(bug.id, bug.web_link)
+
+
+def command_update(launchpad_client, options):
+    properties = vars(options)
+    for k in properties.keys():
+        if properties[k] is None or properties[k] == []:
+            properties.pop(k, None)
+    bug = launchpad_client.update_bug(**properties)
+    print 'Updated bug #{} {}'.format(bug.id, bug.web_link)
 
 
 def main():
 
     parser = get_argparser()
     options = parser.parse_args()
-    #lp = launchpad_client(project=options.project, bug_id=options.bug_id)
     lp = launchpad_client(project=options.project)
     options.func(lp, options)
 
