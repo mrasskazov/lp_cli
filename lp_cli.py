@@ -84,7 +84,7 @@ class launchpad_client(object):
     def update_bug(self, bug_id=None, **properties):
         bug = self.bug(bug_id)
         updated = False
-        for p in ['title', 'description', 'tags']:
+        for p in ['title', 'description', 'private', 'tags']:
             if p in properties:
                 #exec('bug.{0} = properties["{0}"]'.format(p))
                 setattr(bug, p, properties[p])
@@ -175,6 +175,9 @@ def get_argparser():
     parser_report.set_defaults(func=command_report)
     parser_report.add_argument('title',
                                help='Bug title.')
+    parser_report.add_argument('-p', '--private',
+                               action='store_true',
+                               help='Bug is private.')
     parser_report.add_argument('-d', '--description',
                                required=True,
                                help='Bug description.')
@@ -203,6 +206,10 @@ def get_argparser():
     parser_update = subparsers.add_parser('update')
     parser_update.set_defaults(func=command_update)
     parser_update.add_argument('bug_id', help='Bug id on Launchpad.')
+    parser_update.add_argument('-p', '--private',
+                               default=None,
+                               type=bool,
+                               help='Bug is private (True|False).')
     parser_update.add_argument('-l', '--title',
                                default=None,
                                help='Bug title.')
