@@ -99,6 +99,9 @@ class launchpad_client(object):
 
     def update_task(self, task, **properties):
         updated = False
+        if 'assignee' in properties:
+            properties['assignee'] = \
+                self.launchpad.people(properties['assignee'])
         for p in ['status', 'importance', 'milestone', 'assignee']:
             if p in properties:
                 #exec('task.{0} = properties["{0}"]'.format(p))
