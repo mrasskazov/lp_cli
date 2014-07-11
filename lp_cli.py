@@ -102,6 +102,9 @@ class launchpad_client(object):
         if 'assignee' in properties:
             properties['assignee'] = \
                 self.launchpad.people(properties['assignee'])
+        if 'milestone' in properties:
+            properties['milestone'] = \
+                self.project().getMilestone(name=properties['milestone'])
         for p in ['status', 'importance', 'milestone', 'assignee']:
             if p in properties:
                 #exec('task.{0} = properties["{0}"]'.format(p))
