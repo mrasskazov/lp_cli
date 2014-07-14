@@ -207,9 +207,14 @@ def get_argparser():
     parser_update.set_defaults(func=command_update)
     parser_update.add_argument('bug_id', help='Bug id on Launchpad.')
     parser_update.add_argument('-p', '--private',
-                               default=None,
-                               type=bool,
-                               help='Bug is private (True|False).')
+                               dest='private',
+                               action='store_true',
+                               help='Bug is private.')
+    parser_update.add_argument('-u', '--public',
+                               dest='private',
+                               action='store_false',
+                               help='Bug is public.')
+    parser_update.set_defaults(private=None)
     parser_update.add_argument('-l', '--title',
                                default=None,
                                help='Bug title.')
