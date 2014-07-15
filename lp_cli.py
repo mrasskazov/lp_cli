@@ -86,9 +86,11 @@ class launchpad_client(object):
         updated = False
         for p in ['title', 'description', 'private', 'tags']:
             if p in properties:
-                #exec('bug.{0} = properties["{0}"]'.format(p))
                 setattr(bug, p, properties[p])
                 updated = True
+        if 'affects_project' in properties:
+            self.bug().addTask(
+                target=self.launchpad.projects[properties['affects_project']])
         if updated:
             bug.lp_save()
 
@@ -107,13 +109,10 @@ class launchpad_client(object):
                 self.project().getMilestone(name=properties['milestone'])
         for p in ['status', 'importance', 'milestone', 'assignee']:
             if p in properties:
-                #exec('task.{0} = properties["{0}"]'.format(p))
                 setattr(task, p, properties[p])
                 updated = True
         if updated:
             task.lp_save()
-
-    #TODO: create task for the bug
 
     def add_comment(self, comment, bug_id=None):
         return self.bug(bug_id).newMessage(content=comment)
@@ -221,6 +220,10 @@ def get_argparser():
     parser_update.add_argument('-d', '--description',
                                default=None,
                                help='Bug description.')
+
+    parser_update.add_argument('-f', '--affects-project',
+                               default=None,
+                               help='Also affects project')
 
     parser_update.add_argument('-s', '--status',
                                choices=statuses_update,
