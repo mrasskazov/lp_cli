@@ -109,8 +109,10 @@ class launchpad_client(object):
             if updated:
                 task.lp_save()
 
-    def add_comment(self, comment, bug_id=None):
-        return self.bug(bug_id).newMessage(content=comment)
+    def add_comment(self, comment, bug_id=None, **properties):
+        for p in [task.target.name for task in self.tasks(bug_id)]:
+            if p in properties['affects_only']:
+                return self.bug(bug_id).newMessage(content=comment)
 
 
 def get_argparser():
@@ -240,6 +242,12 @@ def command_comment(launchpad_client, options):
                                      bug_id=options.bug_id).web_link)
 
 
+def command_comment(launchpad_client, options):
+    properties = vars(options)
+    properties['comment'] = ' '.join(options.comment).strip()
+    comment = launchpad_client.add_comment(**properties)
+    if comment is not None:
+        print 'Added comment: {}'.format(comment.web_link)
 
 
 def command_report(launchpad_client, options):
@@ -257,11 +265,6 @@ def command_report(launchpad_client, options):
 
 def command_update(launchpad_client, options):
     properties = vars(options)
-    if 'affects_only' in properties and properties['affects_only'] is not None:
-        properties['affects_only'] = \
-            set(re.split(' |,|;|/', properties['affects_only']))
-    else:
-        properties['affects_only'] = set([properties['project']])
     for k in properties.keys():
         if properties[k] is None or properties[k] == []:
             properties.pop(k, None)
@@ -274,6 +277,12 @@ def main():
     parser = get_argparser()
     options = parser.parse_args()
     lp = launchpad_client(project=options.project)
+    properties = vars(options)
+    if 'affects_only' in properties and properties['affects_only'] is not None:
+        properties['affects_only'] = \
+            set(re.split(' |,|;|/', properties['affects_only']))
+    else:
+        properties['affects_only'] = set([properties['project']])
     options.func(lp, options)
 
 
