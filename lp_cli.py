@@ -18,6 +18,7 @@
 
 import argparse
 import os
+import re
 
 from launchpadlib.launchpad import Launchpad
 from launchpadlib.launchpad import uris
@@ -64,13 +65,6 @@ class launchpad_client(object):
 
     def tasks(self, bug_id=None):
         if bug_id is not None:
-            #TODO: add check for affected projects
-            #for task in self.bug(bug_id).bug_tasks:
-            #    if task.bug_target_name == self.project().name:
-            #        self.Tasks.append(task)
-            #if not self.Tasks:
-            #    raise Exception("Bug #{} not affected on project '{}'".format(
-            #        bug_id, self.project()))
             self.Tasks = self.bug(bug_id).bug_tasks
         return self.Tasks
 
@@ -101,18 +95,19 @@ class launchpad_client(object):
 
     def update_task(self, task, **properties):
         updated = False
-        if 'assignee' in properties:
-            properties['assignee'] = \
-                self.launchpad.people(properties['assignee'])
-        if 'milestone' in properties:
-            properties['milestone'] = \
-                self.project().getMilestone(name=properties['milestone'])
-        for p in ['status', 'importance', 'milestone', 'assignee']:
-            if p in properties:
-                setattr(task, p, properties[p])
-                updated = True
-        if updated:
-            task.lp_save()
+        if task.target.name in properties['affects_only']:
+            if 'assignee' in properties:
+                properties['assignee'] = \
+                    self.launchpad.people(properties['assignee'])
+            if 'milestone' in properties:
+                properties['milestone'] = \
+                    self.project().getMilestone(name=properties['milestone'])
+            for p in ['status', 'importance', 'milestone', 'assignee']:
+                if p in properties:
+                    setattr(task, p, properties[p])
+                    updated = True
+            if updated:
+                task.lp_save()
 
     def add_comment(self, comment, bug_id=None):
         return self.bug(bug_id).newMessage(content=comment)
@@ -145,13 +140,15 @@ def get_argparser():
                                      description='Command line client '
                                      'for Launchpad')
     parser.add_argument('project',
-                        help='Launchpad project\'s name for auth.')
-    parser.add_argument('-a', '--affected',
-                        nargs='*',
+                        help='Launchpad project\'s name for auth. Bug will be '
+                        'updated only if affected with it if --affects-only '
+                        'is not specified')
+    parser.add_argument('-o', '--affects-only',
+                        required=False,
                         default=None,
-                        help='Launchpad project\'s name for check that bug is '
-                        'affected on it. If specified, bug will be updated '
-                        'only in this case.')
+                        help='Comma separated Launchpad project\'s names. '
+                        'If specified, bug will be updated '
+                        'only if it affected with specified projects.')
 
     subparsers = parser.add_subparsers(title='Commands')
 
@@ -277,6 +274,11 @@ def command_report(launchpad_client, options):
 
 def command_update(launchpad_client, options):
     properties = vars(options)
+    if 'affects_only' in properties and properties['affects_only'] is not None:
+        properties['affects_only'] = \
+            set(re.split(' |,|;|/', properties['affects_only']))
+    else:
+        properties['affects_only'] = set([properties['project']])
     for k in properties.keys():
         if properties[k] is None or properties[k] == []:
             properties.pop(k, None)
