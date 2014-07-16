@@ -112,9 +112,6 @@ class launchpad_client(object):
     def add_comment(self, comment, bug_id=None):
         return self.bug(bug_id).newMessage(content=comment)
 
-    def change_status(self, bug_id, status, current_status=None):
-        self.update_bug(bug_id, status=status)
-
 
 def get_argparser():
     statuses_report = ['New',
@@ -156,16 +153,6 @@ def get_argparser():
     parser_comment.set_defaults(func=command_comment)
     parser_comment.add_argument('bug_id', help='Bug id on Launchpad.')
     parser_comment.add_argument('comment', help='Comment body.', nargs='+')
-
-    parser_status = subparsers.add_parser('status')
-    parser_status.set_defaults(func=command_status)
-    parser_status.add_argument('bug_id', help='Bug id on Launchpad.')
-    parser_status.add_argument('-s', '--status',
-                               choices=statuses_update,
-                               help='New status for a bug.')
-    #parser_status.add_argument('-c', '--current-status',
-    #                           help='Current status for bug. If specified, '
-    #                           'status will be updated only when according.')
 
     parser_report = subparsers.add_parser('report')
     parser_report.set_defaults(func=command_report)
@@ -253,10 +240,6 @@ def command_comment(launchpad_client, options):
                                      bug_id=options.bug_id).web_link)
 
 
-def command_status(launchpad_client, options):
-    launchpad_client.change_status(options.bug_id, options.status)
-    print 'Status for bug #{} changed to "{}"'.format(options.bug_id,
-                                                      options.status)
 
 
 def command_report(launchpad_client, options):
