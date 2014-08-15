@@ -54,13 +54,21 @@ class launchpad_client(object):
 
     def project(self, project=None):
         if project is not None:
-            self.Project = self.launchpad.projects[project]
+            try:
+                self.Project = self.launchpad.projects[project]
+            except KeyError:
+                print "Can't load project '{}' information".format(project)
+                exit()
         return self.Project
 
     def bug(self, bug_id=None):
         if bug_id is not None:
             if self.Bug is None or self.Bug.id != bug_id:
-                self.Bug = self.launchpad.bugs[bug_id]
+                try:
+                    self.Bug = self.launchpad.bugs[bug_id]
+                except KeyError:
+                    print "Can't load bug #{} information".format(bug_id)
+                    exit()
         return self.Bug
 
     def tasks(self, bug_id=None):
