@@ -244,13 +244,6 @@ def get_argparser():
 
 
 def command_comment(launchpad_client, options):
-    comment = ' '.join(options.comment).strip()
-    print 'Added comment: {}'.format(
-        launchpad_client.add_comment(comment=comment,
-                                     bug_id=options.bug_id).web_link)
-
-
-def command_comment(launchpad_client, options):
     properties = vars(options)
     properties['comment'] = ' '.join(options.comment).strip()
     comment = launchpad_client.add_comment(**properties)
