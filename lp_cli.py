@@ -84,17 +84,20 @@ class launchpad_client(object):
         return bug
 
     def update_bug(self, bug_id=None, **properties):
+
         bug = self.bug(bug_id)
-        updated = False
-        for p in ['title', 'description', 'private', 'tags']:
-            if p in properties:
-                setattr(bug, p, properties[p])
-                updated = True
         if 'affects_project' in properties:
             self.bug().addTask(
                 target=self.launchpad.projects[properties['affects_project']])
-        if updated:
-            bug.lp_save()
+
+        if self._update_if_affects_another(bug_id, **properties) is True:
+            updated = False
+            for p in ['title', 'description', 'private', 'tags']:
+                if p in properties:
+                    setattr(bug, p, properties[p])
+                    updated = True
+            if updated:
+                bug.lp_save()
 
         for task in self.tasks(bug_id):
             self.update_task(task, **properties)
