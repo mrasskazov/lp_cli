@@ -118,9 +118,26 @@ class launchpad_client(object):
                 task.lp_save()
 
     def add_comment(self, comment, bug_id=None, **properties):
+        if self._update_if_affects_another(bug_id, **properties) is not True:
+            return None
         for p in [task.target.name for task in self.tasks(bug_id)]:
             if p in properties['affects_only']:
                 return self.bug(bug_id).newMessage(content=comment)
+
+    def _update_if_affects_another(self, bug_id=None, **properties):
+        if 'update_if_affects_another' in properties:
+            if properties['update_if_affects_another'] is not True:
+                affects = [task.target.name for task in self.tasks(bug_id)]
+                for p in affects:
+                    if p not in properties['affects_only']:
+                        print('Bug #{} will not be updated because it affects '
+                              'projects ({}), but you specified only ({}).'
+                              ''.format(bug_id,
+                                        ','.join(affects),
+                                        ', '.join(properties['affects_only']))
+                              )
+                        return None
+        return True
 
 
 def get_argparser():
@@ -156,6 +173,13 @@ def get_argparser():
                         help='Comma separated Launchpad project\'s names. '
                         'If specified, bug will be updated '
                         'only if it affected with specified projects.')
+    parser.add_argument('-a', '--update-if-affects-another',
+                        action='store_true',
+                        required=False,
+                        default=False,
+                        help='Perform operation if bug affects more projects '
+                        'than specified in "project" or "--affects-only". '
+                        'Operation will be skipped in this case by default.')
 
     subparsers = parser.add_subparsers(title='Commands')
 
